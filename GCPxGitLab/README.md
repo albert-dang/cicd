@@ -18,11 +18,11 @@ Note that if we wish to use an existing repository which is already configured f
 
 Navigate to the [Artifact Registry](%28https://console.cloud.google.com/artifacts%29) and create a new repository with the following configuration:
 
-	Name: 			my-repo
-	Format: 		Docker
-	Location type: 	Region
-	Region: 		us-east4
-	Encryption: 	Google-managed encryption key
+	Name: 				my-repo
+	Format: 			Docker
+	Location type:		Region
+	Region: 			us-east4
+	Encryption:			Google-managed encryption key
 Or use the following command in cloud shell:
 
 	gcloud artifacts repositories create my-repo \
@@ -67,8 +67,7 @@ Copy the entire line,
 We need to navigate to our GitLab instance and go to "Edit profile" from the dropdown menu at the top-right. On the left navigation bar, head to "SSH Keys". Here, we can paste the public key into the "Key" field, edit the Title if we want, and hit "Add key". 
 
 # [Cloud Build Trigger](https://console.cloud.google.com/cloud-build/triggers)
-Let's break down the steps in our trigger configuration. The commands used in these steps can be studied in depth here: https://cloud.google.com/run/docs/configuring/containers#command-line
-https://cloud.google.com/build/docs/configuring-builds/create-basic-configuration
+Let's break down the steps in our trigger configuration.
 
 First, we use ssh-keyscan to build our known_hosts
 
@@ -130,7 +129,7 @@ Then, deploy the container with Cloud Run
 				- '--allow-unauthenticated''
 			entrypoint: gcloud
 
-We can define values for the variables in our configuration. This is useful in case we want to configure these details at build time or re-use this template with different values. Substituting variable values can be studied further here: https://cloud.google.com/build/docs/configuring-builds/substitute-variable-values
+We can define values for the variables in our configuration. This is useful in case we want to configure these details at build time or re-use this template with different values.
 
 		substitutions:
 			_GITLAB_IP: 12.123.123.12
@@ -189,4 +188,17 @@ Under "New principals", we'll add the Cloud Build Service Account from earlier.
 Under "Role", we'll choose Service Account User and hit "Save".
 
 # GitLab Webhook
-We need to create a Webhook which will call the Cloud Build Trigger at its URL.  
+We need to create a Webhook which will call the Cloud Build Trigger at its URL. Navigate to the GitLab project which we are automating. On the left navigation bar, we will go to Settings > Webhooks
+
+For the URL, we need to use the Webhook URL from the [Cloud Build Trigger](https://console.cloud.google.com/cloud-build/triggers) we created earlier. We can find this by clicking on the trigger name or going to "Edit" the trigger. Under "Webhook URL", we can hit "SHOW URL PREVIEW" to get something similar to:
+
+    https://cloudbuild.googleapis.com/v1/projects/
+    project-id/triggers/trigger:webhook?key=...&secret=...
+
+We can paste this into the "URL" field in GitLab.
+
+With "Push events" checked, we will leave all other defaults unless we want to set up crude staging. This can be done by specifying the "main" branch next to "Push events". We would then push to new branches and only build and deploy on a successful merge.
+
+We can hit "Add webhook". Since we are now done configuring all of our pipeline, we can use the "Test" feature right from GitLab to simulate "Push events".
+
+Navigate to the [Cloud Build history](https://console.cloud.google.com/cloud-build/builds) to see if validate the pipeline or troubleshoot errors.
