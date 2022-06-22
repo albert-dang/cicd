@@ -1,0 +1,54 @@
+steps:
+  - name: gcr.io/cloud-builders/git
+    args:
+      - '-c'
+      - |
+        echo "$$SSHKEY" > /root/.ssh/id_rsa
+        chmod 400 /root/.ssh/id_rsa
+        ssh-keyscan ${_GITLAB_IP} > /root/.ssh/known_hosts
+    entrypoint: bash
+    secretEnv:
+      - SSHKEY
+    volumes:
+      - name: ssh
+        path: /root/.ssh
+  - name: gcr.io/cloud-builders/git
+    args:
+      - clone
+      - 'git@${_GITLAB_IP}:${_GITLAB_NAME}.git'
+      - .
+    volumes:
+      - name: ssh
+        path: /root/.ssh
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - '-t'
+      - '${_ARTIFACT_REPO}'
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - '${_ARTIFACT_REPO}'
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    args:
+      - run
+      - deploy
+      - my-deployment
+      - '--image'
+      - '${_ARTIFACT_REPO}'
+      - '--port'
+      - '80'
+      - '--region'
+      - us-east4
+      - '--allow-unauthenticated'
+    entrypoint: gcloud
+substitutions:
+  _PROJECT_NUMBER: '123456789012'
+  _GITLAB_IP: 12.123.123.12
+  _ARTIFACT_REPO: region-docker.pkg.dev/project-155011/my-repo/my-image
+  _GITLAB_NAME: group/project
+availableSecrets:
+  secretManager:
+    - versionName: 'projects/${_PROJECT_NUMBER}/secrets/gitlab-key/versions/1'
+      env: SSHKEY
