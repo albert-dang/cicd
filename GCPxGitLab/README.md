@@ -1,4 +1,8 @@
 #  CICD GCPxGitLab
+This is an updated quickstart for existing projects based on Neil Kolban's [guide on Medium](https://medium.com/google-cloud/using-gitlab-and-cloud-build-to-achieve-ci-cd-for-cloud-run-4c6db26f04ed).
+
+This pipeline will build and deploy on every commit pushed to a GitLab repo. It can be configured to trigger on pushes to the main branch, requiring a product leader to approve final merges to the main branch for a crude "staging" layer.
+
 **Before we begin:**
  1. We should have an existing GitLab instance with traffic enabled over port 22
  2. We should have an existing GitLab repo and "Maintainer" access or higher
@@ -10,9 +14,57 @@
  3. Set up a Webhook on GitLab which calls the Cloud Build Trigger on a new push
 
 # [Artifact Registry](https://console.cloud.google.com/artifacts)
+Note that if we wish to use an existing repository which is already configured for Docker and Google-managed keys, this step is not necessary.
+
+Navigate to the [Artifact Registry](%28https://console.cloud.google.com/artifacts%29) and create a new repository with the following configuration:
+
+	Name: 			my-repo
+	Format: 		Docker
+	Location type: 	Region
+	Region: 		us-east4
+	Encryption: 	Google-managed encryption key
+Or use the following command in cloud shell:
+
+	gcloud artifacts repositories create my-repo \
+	--repository-format=docker \
+	--location=us-east4
+If we do not specify a region with the --location flag in cloud shell, it will use our default region.
 
 # [Secret Manager](https://console.cloud.google.com/security/secret-manager)
-If we haven't already, navigate to the Secret Manager and enable the API. At the top, we can hit "+ CREATE SECRET" and name our secret 
+Note that if we can share an existing SSH key for GitLab, we can skip this step.
+
+Navigate to the Secret Manager and enable the API. At the top, we can hit "+ CREATE SECRET" and name our secret
+	
+	gitlab-key
+
+For the secret value, we will generate a private key to SSH into GitLab. Activate Cloud Shell using the command line icon at the top-right. Once our command line is booted up, enter the following command:
+	
+	cd ~/.ssh  
+	ssh-keygen -t ed25519 -f gitlab-key -q -N ""  
+	cat << EOF >> config  
+	Host [GITLAB_IP]  
+	  IdentityFile ~/.ssh/gitlab-key  
+	EOF
+
+Since we are now in the .ssh directory where keys are stored, we can run the next command to print our private key:
+	
+	cat gitlab-key
+Copy the entire block, within and including:
+
+	-----BEGIN OPENSSH PRIVATE KEY-----
+	-----END OPENSSH PRIVATE KEY-----
+
+We can paste the private key into the "Secret value" field. We can leave all other defaults and hit "CREATE SECRET".
+
+Next, we need to print our public key for GitLab:
+	
+	cat gitlab-key.pub
+
+Copy the entire line,
+	
+	ssh-ed25519 ... user@cs-334698-default
+
+We need to navigate to our GitLab instance and go to "Edit profile" from the dropdown menu at the top-right. On the left navigation bar, head to "SSH Keys". Here, we can paste the public key into the "Key" field, edit the Title if we want, and hit "Add key". 
 
 # [Cloud Build Trigger](https://console.cloud.google.com/cloud-build/triggers)
 Let's break down the steps in our trigger configuration. The commands used in these steps can be studied in depth here: https://cloud.google.com/run/docs/configuring/containers#command-line
@@ -111,7 +163,7 @@ This specifies the secret we named "gitlab-key" and uses version 1
 
 Ensure that the Cloud Build Service Account 
 		
-		[project-number]@cloudbuild.gserviceaccount.com 
+	[project-number]@cloudbuild.gserviceaccount.com 
 has the following Roles:
 
  - Cloud Build Service Account
@@ -135,3 +187,6 @@ We can click on the Service Account email to view details, navigate to the "Perm
 Under "New principals", we'll add the Cloud Build Service Account from earlier.
 
 Under "Role", we'll choose Service Account User and hit "Save".
+
+# GitLab Webhook
+We need to create a Webhook which will call the Cloud Build Trigger at its URL.  
