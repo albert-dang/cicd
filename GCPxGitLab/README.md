@@ -14,15 +14,14 @@ This pipeline will build and deploy on every commit pushed to a GitLab repo. It 
  3. Set up a Webhook on GitLab which calls the Cloud Build Trigger on a new push
 
 # [Artifact Registry](https://console.cloud.google.com/artifacts)
-Note that if we wish to use an existing repository which is already configured for Docker and Google-managed keys, this step is not necessary.
-
 Navigate to the [Artifact Registry](%28https://console.cloud.google.com/artifacts%29) and create a new repository with the following configuration:
 
-	Name: 				my-repo
-	Format: 			Docker
-	Location type:		Region
-	Region: 			us-east4
-	Encryption:			Google-managed encryption key
+	Name: 			my-repo
+	Format: 		Docker
+	Location type:	Region
+	Region: 		us-east4
+	Encryption:		Google-managed encryption key
+
 Or use the following command in cloud shell:
 
 	gcloud artifacts repositories create my-repo \
@@ -31,8 +30,6 @@ Or use the following command in cloud shell:
 If we do not specify a region with the --location flag in cloud shell, it will use our default region.
 
 # [Secret Manager](https://console.cloud.google.com/security/secret-manager)
-Note that if we can share an existing SSH key for GitLab, we can skip this step.
-
 Navigate to the Secret Manager and enable the API. At the top, we can hit "+ CREATE SECRET" and name our secret
 	
 	gitlab-key
@@ -67,6 +64,20 @@ Copy the entire line,
 We need to navigate to our GitLab instance and go to "Edit profile" from the dropdown menu at the top-right. On the left navigation bar, head to "SSH Keys". Here, we can paste the public key into the "Key" field, edit the Title if we want, and hit "Add key". 
 
 # [Cloud Build Trigger](https://console.cloud.google.com/cloud-build/triggers)
+Navigate to Cloud Build and go to the "Triggers" page using the left navigation bar. 
+
+At the top, we can hit "+ CREATE TRIGGER" and use the following configurations:
+
+	Name:			my-trigger
+	Region:			global (non-regional)
+	Event: 			Webhook event
+
+For Secret, we can hit "CREATE SECRET" and enter a name or take the default "webhook-secret".
+
+For configuration, we use the type "Cloud Build configuration file (yaml or json)" and location "Inline".
+
+We can hit OPEN EDITOR and paste in the [instadeploy.yaml](https://github.com/helloalbertdang/cicd/blob/main/GCPxGitLab/instadeploy.yaml) template. We will take the other defaults and hit "Create".
+
 Let's break down the steps in our trigger configuration.
 
 First, we use ssh-keyscan to build our known_hosts
@@ -140,6 +151,7 @@ We can define values for the variables in our configuration. This is useful in c
 _GITLAB_IP is an address where the code repository can be cloned from, typically this is the external IP of our GitLab instance.
 
 _ARTIFACT_REPO is the full path for the container image in the [artifact registry](https://console.cloud.google.com/artifacts),  which can be found by clicking on the repository or image name and using the copy button. If no image exists yet, we can append any name to the repository path for the new images.
+
 An image called "my-image" inside an Artifact Registry repository called "my-repo", in the North America northeast2 region would have a path similar to:
 
 	northamerica-northeast2-docker.pkg.dev/project-257811/my-repo/my-image
